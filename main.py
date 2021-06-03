@@ -338,6 +338,7 @@ def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMo
     return rec_list
 
 def init_model():
+    context.update(mood_lrs={})
     users, tracks, items = load_data('./userData.csv')
     data = pd.DataFrame(items, columns=["user", "track", "rating"])
     context.update(tracks=tracks)
