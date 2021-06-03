@@ -17,7 +17,7 @@ from surprise import SVDpp
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, final
+from typing import List, Optional
 
 from starlette_context import context, plugins
 from starlette_context.middleware import ContextMiddleware
