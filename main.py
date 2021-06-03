@@ -398,7 +398,7 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-async def startup(background_tasks: BackgroundTasks):
+async def startup():
     # background_tasks.add_task(init_model)
     print("App Started")
 
