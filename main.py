@@ -318,31 +318,7 @@ def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMo
 
     return rec_list
 
-
-class UserInfo(BaseModel):
-  prefWeight: Optional[float] = 0.5
-  moodWeight: Optional[float] = 0.5
-  pitchWeight: Optional[float] = 0.5
-  likeList: Optional[List[str]] = []
-  dislikeList: Optional[List[str]] = []
-  undefinedList: Optional[List[str]] = []
-  minPitch: Optional[str] = ''
-  maxPitch: Optional[str] = ''
-  moods: Optional[List[str]] = []
-
-app = FastAPI()
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.on_event("startup")
-async def init_model():
+def init_model():
     global train_sparse_data, tracks, moods, mood_lrs, song_num, df_songs, trained_features, clf
 
     users, tracks, items = load_data('./userData.csv')
@@ -397,7 +373,32 @@ async def init_model():
     df_songs = pd.read_csv('songListWithFeatures.csv',index_col=['num'])
     song_num = len(df_songs)
 
+class UserInfo(BaseModel):
+  prefWeight: Optional[float] = 0.5
+  moodWeight: Optional[float] = 0.5
+  pitchWeight: Optional[float] = 0.5
+  likeList: Optional[List[str]] = []
+  dislikeList: Optional[List[str]] = []
+  undefinedList: Optional[List[str]] = []
+  minPitch: Optional[str] = ''
+  maxPitch: Optional[str] = ''
+  moods: Optional[List[str]] = []
 
+app = FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup():
+    # init_model()
+    print("Hello World!")
 
 @app.post('/recommendations')                # Just in case if you want to handle a GET request
 def index(userInfo: UserInfo):
@@ -414,3 +415,7 @@ def index(userInfo: UserInfo):
     )
     
     return result.to_dict('records')[:10]
+
+@app.get('/')
+def getInfo():
+    return "Hello World"
