@@ -23,7 +23,7 @@ tracks = None
 data = None
 train_sparse_data = None
 song_num = None
-dg_songs = None
+df_songs = None
 final_tracks_ids = []
 trained_features = None
 clf = None
@@ -215,7 +215,7 @@ def error_metrics(y_true, y_pred):
     return rmse
 
 def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMood):
-    global song_num, dg_songs, trained_features, clf
+    global song_num, df_songs, trained_features, clf
 
     # Get input
     weight = newWeight
@@ -373,6 +373,7 @@ def init_model():
     df_songs = pd.read_csv('songListWithFeatures.csv',index_col=['num'])
     song_num = len(df_songs)
 
+    print(song_num)
     print("Init Model Finished")
 
 class UserInfo(BaseModel):
