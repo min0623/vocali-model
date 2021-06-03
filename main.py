@@ -360,14 +360,14 @@ def init_model():
     train_sparse_data = get_user_item_sparse_matrix(train_data)
     test_sparse_data = get_user_item_sparse_matrix(test_data)
 
+    context.update(train_sparse_data = train_sparse_data)
+
     global_average_rating = train_sparse_data.sum()/train_sparse_data.count_nonzero()
 
     similar_user_matrix = compute_user_similarity(train_sparse_data)
 
     train_new_similar_features = create_new_similar_features(train_sparse_data)
     test_new_similar_features = create_new_similar_features(test_sparse_data)
-
-    context.update(train_sparse_data = train_sparse_data)
 
     x_train = train_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
     x_test = test_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
