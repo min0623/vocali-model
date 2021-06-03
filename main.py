@@ -126,7 +126,7 @@ def create_new_similar_features(sample_sparse_matrix):
     global_avg_users = get_average_rating(sample_sparse_matrix, True)
     global_avg_tracks = get_average_rating(sample_sparse_matrix, False)
     sample_train_users, sample_train_tracks, sample_train_ratings = sparse.find(sample_sparse_matrix)
-    new_features_csv_file = open("../new_features.csv", mode = "w")
+    new_features_csv_file = open("./new_features.csv", mode = "w")
     
     for user, track, rating in zip(sample_train_users, sample_train_tracks, sample_train_ratings):
         similar_arr = list()
@@ -156,7 +156,7 @@ def create_new_similar_features(sample_sparse_matrix):
         new_features_csv_file.write("\n")
         
     new_features_csv_file.close()
-    new_features_df = pd.read_csv('../new_features.csv', names = ["user_id", "track_id", "similar_user_rating1", 
+    new_features_df = pd.read_csv('./new_features.csv', names = ["user_id", "track_id", "similar_user_rating1", 
                                                                "similar_user_rating2", "similar_user_rating3", "similar_user_rating4", "similar_user_rating5",
                                                                "similar_track_rating1", "similar_track_rating2", 
                                                                "similar_track_rating3", "similar_track_rating4", "similar_track_rating5",
@@ -170,7 +170,7 @@ def create_new_similar_features_for_new_user(sample_sparse_matrix, new_user):
     global_avg_users = get_average_rating(sample_sparse_matrix, True)
     global_avg_tracks = get_average_rating(sample_sparse_matrix, False)
     sample_train_users, sample_train_tracks, sample_train_ratings = sparse.find(sample_sparse_matrix)
-    new_features_csv_file = open("../new_features_for_user.csv", mode = "w")
+    new_features_csv_file = open("./new_features_for_user.csv", mode = "w")
     
     for user, track, rating in zip(sample_train_users, sample_train_tracks, sample_train_ratings):
       if (user == new_user):
@@ -201,7 +201,7 @@ def create_new_similar_features_for_new_user(sample_sparse_matrix, new_user):
         new_features_csv_file.write("\n")
         
     new_features_csv_file.close()
-    new_features_df = pd.read_csv('../new_features_for_user.csv', names = ["user_id", "track_id", "similar_user_rating1", 
+    new_features_df = pd.read_csv('./new_features_for_user.csv', names = ["user_id", "track_id", "similar_user_rating1", 
                                                                "similar_user_rating2", "similar_user_rating3", "similar_user_rating4", "similar_user_rating5",
                                                                "similar_track_rating1", "similar_track_rating2", 
                                                                "similar_track_rating3", "similar_track_rating4", "similar_track_rating5",
