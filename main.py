@@ -42,13 +42,13 @@ pitch2int = {"C": 0,"B#": 0,"C#":1,"D": 2,"D#": 3,"E": 4,"F": 5,
              "E#": 5,"F#": 6,"G": 7,"G#": 8,"A": 9,"A#": 10,"B": 11}
 
 app.add_middleware(
-    ContextMiddleware,
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ContextMiddleware)
 
 # Gets the list of all track ids and names
 def get_final_track_list(filename):
