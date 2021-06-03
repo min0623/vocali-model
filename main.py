@@ -14,7 +14,7 @@ from surprise import BaselineOnly
 from surprise import KNNBaseline
 from surprise import SVD
 from surprise import SVDpp
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -373,6 +373,8 @@ def init_model():
     df_songs = pd.read_csv('songListWithFeatures.csv',index_col=['num'])
     song_num = len(df_songs)
 
+    print("Init Model Finished")
+
 class UserInfo(BaseModel):
   prefWeight: Optional[float] = 0.5
   moodWeight: Optional[float] = 0.5
@@ -396,9 +398,8 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-async def startup():
-    # init_model()
-    print("Hello World!")
+async def startup(background_tasks: BackgroundTasks):
+    background_tasks.add_task(init_model)
 
 @app.post('/recommendations')                # Just in case if you want to handle a GET request
 def index(userInfo: UserInfo):
