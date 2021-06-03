@@ -378,6 +378,8 @@ async def init_model():
     y_train = train_new_similar_features["rating"]
     y_test = test_new_similar_features["rating"]
 
+    print(x_train, y_train)
+
     # XGB Model
     clf = xgb.XGBRegressor(n_estimators = 100, silent = False, n_jobs  = 21, random_state=15, objective='binary:logistic', learning_rate=0.05, num_round=200, max_depth=6)
     clf.fit(x_train, y_train, eval_metric = 'rmse')
