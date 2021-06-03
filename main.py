@@ -17,7 +17,10 @@ from surprise import SVDpp
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, final
+
+from starlette_context import context, plugins
+from starlette_context.middleware import ContextMiddleware
 
 class UserInfo(BaseModel):
   prefWeight: Optional[float] = 0.5
@@ -32,23 +35,14 @@ class UserInfo(BaseModel):
 
 app = FastAPI()
 
-app.tracks = None
-app.data = None
-app.train_sparse_data = None
-app.song_num = None
-app.df_songs = None
-app.final_tracks_ids = []
-app.trained_features = None
-app.clf = None
-
-app.moods = ['happy', 'energetic', 'depression', 'calm']
-app.int2pitch = {0: ["C"],1: ["C#"],2: ["D"],3: ["D#"],4: ["E"],5: ["F"],
+moods = ['happy', 'energetic', 'depression', 'calm']
+int2pitch = {0: ["C"],1: ["C#"],2: ["D"],3: ["D#"],4: ["E"],5: ["F"],
              6: ["F#"],7: ["G"],8: ["G#"],9: ["A"],10: ["A#"],11: ["B"]}
-app.pitch2int = {"C": 0,"B#": 0,"C#":1,"D": 2,"D#": 3,"E": 4,"F": 5,
+pitch2int = {"C": 0,"B#": 0,"C#":1,"D": 2,"D#": 3,"E": 4,"F": 5,
              "E#": 5,"F#": 6,"G": 7,"G#": 8,"A": 9,"A#": 10,"B": 11}
-app.mood_lrs = {}
 
 app.add_middleware(
+    ContextMiddleware,
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
@@ -100,7 +94,7 @@ def load_data(filename):
                     item = [user_id, track_id, 0.5]
                 items.append(item)
 
-        app.final_track_ids = final_tracks_ids
+        context.update(final_tracks_ids=final_tracks_ids)
         
         return users, tracks, items
 
@@ -125,7 +119,7 @@ def compute_user_similarity(sparse_matrix):
     similar_arr = np.zeros(len(rows) * len(rows)).reshape(len(rows), len(rows))
 
     for row in rows:
-        sim = cosine_similarity(sparse_matrix.getrow(row), app.train_sparse_data).ravel()
+        sim = cosine_similarity(sparse_matrix.getrow(row), context['train_sparse_data']).ravel()
         similar_indices = sim.argsort()
         similar = sim[similar_indices]
         similar_arr[row] = similar
@@ -135,7 +129,7 @@ def compute_user_similarity(sparse_matrix):
 # Calculates the similarity between tracks
 def compute_track_similarity(sparse_matrix, track_id):
     similarity = cosine_similarity(sparse_matrix.T, dense_output=False)
-    similar_tracks = app.tracks[track_id], similarity[track_id]
+    similar_tracks = context['tracks'][track_id], similarity[track_id]
     return similar_tracks
 
 # Calculates the similar features of top 10 user and tracks for initial dataset
@@ -233,14 +227,14 @@ def error_metrics(y_true, y_pred):
     return rmse
 
 def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMood):
-    song_num = app.song_num
-    df_songs = app.df_songs
-    trained_features = app.trained_features
-    clf = app.clf
-    mood_lrs = app.mood_lrs
-    pitch2int = app.pitch2int
-    data = app.data
-    final_tracks_ids = app.final_tracks_ids
+    song_num = context['song_num']
+    df_songs = context['df_songs']
+    trained_features = context['trained_features']
+    clf = context['clf']
+    mood_lrs = context['mood_lrs']
+    pitch2int = context['pitch2int']
+    data = context['data']
+    final_tracks_ids = context['final_tracks_ids']
 
     # Get input
     weight = newWeight
@@ -344,8 +338,9 @@ def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMo
     return rec_list
 
 def init_model():
-    users, app.tracks, items = load_data('./userData.csv')
+    users, tracks, items = load_data('./userData.csv')
     data = pd.DataFrame(items, columns=["user", "track", "rating"])
+    context.update(tracks=tracks)
 
     reader = Reader(rating_scale=(0,1))
     train_data_mf = Dataset.load_from_df(data[['user', 'track', 'rating']], reader)
@@ -372,7 +367,7 @@ def init_model():
     train_new_similar_features = create_new_similar_features(train_sparse_data)
     test_new_similar_features = create_new_similar_features(test_sparse_data)
 
-    app.train_sparse_data = train_sparse_data
+    context.update(train_sparse_data = train_sparse_data)
 
     x_train = train_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
     x_test = test_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
@@ -384,21 +379,23 @@ def init_model():
     # XGB Model
     clf = xgb.XGBRegressor(n_estimators = 100, silent = False, n_jobs  = 21, random_state=15, objective='binary:logistic', learning_rate=0.05, num_round=200, max_depth=6)
     clf.fit(x_train, y_train, eval_metric = 'rmse')
-    app.clf = clf
+    context.update(clf = clf)
 
     y_pred_test = clf.predict(x_test)
     rmse_test = error_metrics(y_test, y_pred_test)
     trained_sparse_matrix = get_user_item_sparse_matrix(data)
-    app.trained_features = create_new_similar_features(trained_sparse_matrix)
+    context.update(trained_features = create_new_similar_features(trained_sparse_matrix))
 
-    for mood in app.moods:
+    for mood in moods:
         pkl_filename = "LR_" + mood + ".pkl"
         with open(pkl_filename, 'rb') as file:
-            app.mood_lrs[mood] = pickle.load(file)
+            mood_lrs = context['mood_lrs']
+            mood_lrs[mood] = pickle.load(file)
+            context.update(mood_lrs=mood_lrs)
 
     df_songs = pd.read_csv('songListWithFeatures.csv',index_col=['num'])
-    app.song_num = len(df_songs)
-    app.df_songs = df_songs
+    context.update(song_num = len(df_songs))
+    context.update(df_songs = df_songs)
 
     print("Init Model Finished")
 
