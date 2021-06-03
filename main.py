@@ -19,21 +19,42 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
-tracks = None
-data = None
-train_sparse_data = None
-song_num = None
-df_songs = None
-final_tracks_ids = []
-trained_features = None
-clf = None
+class UserInfo(BaseModel):
+  prefWeight: Optional[float] = 0.5
+  moodWeight: Optional[float] = 0.5
+  pitchWeight: Optional[float] = 0.5
+  likeList: Optional[List[str]] = []
+  dislikeList: Optional[List[str]] = []
+  undefinedList: Optional[List[str]] = []
+  minPitch: Optional[str] = ''
+  maxPitch: Optional[str] = ''
+  moods: Optional[List[str]] = []
 
-moods = ['happy', 'energetic', 'depression', 'calm']
-int2pitch = {0: ["C"],1: ["C#"],2: ["D"],3: ["D#"],4: ["E"],5: ["F"],
+app = FastAPI()
+
+app.tracks = None
+app.data = None
+app.train_sparse_data = None
+app.song_num = None
+app.df_songs = None
+app.final_tracks_ids = []
+app.trained_features = None
+app.clf = None
+
+app.moods = ['happy', 'energetic', 'depression', 'calm']
+app.int2pitch = {0: ["C"],1: ["C#"],2: ["D"],3: ["D#"],4: ["E"],5: ["F"],
              6: ["F#"],7: ["G"],8: ["G#"],9: ["A"],10: ["A#"],11: ["B"]}
-pitch2int = {"C": 0,"B#": 0,"C#":1,"D": 2,"D#": 3,"E": 4,"F": 5,
+app.pitch2int = {"C": 0,"B#": 0,"C#":1,"D": 2,"D#": 3,"E": 4,"F": 5,
              "E#": 5,"F#": 6,"G": 7,"G#": 8,"A": 9,"A#": 10,"B": 11}
-mood_lrs = {}
+app.mood_lrs = {}
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Gets the list of all track ids and names
 def get_final_track_list(filename):
@@ -53,7 +74,6 @@ def get_final_track_list(filename):
 
 # Loads the dataset of user-item data
 def load_data(filename):
-    global final_tracks_ids
     with open(filename, 'r', encoding='utf-8') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         line_count = 0
@@ -79,6 +99,8 @@ def load_data(filename):
                 else:
                     item = [user_id, track_id, 0.5]
                 items.append(item)
+
+        app.final_track_ids = final_tracks_ids
         
         return users, tracks, items
 
@@ -98,14 +120,12 @@ def get_average_rating(sparse_matrix, is_user):
 
 # Calculates the similarity between users
 def compute_user_similarity(sparse_matrix):
-    global train_sparse_data
-
     row_index, col_index = sparse_matrix.nonzero()
     rows = np.unique(row_index)
     similar_arr = np.zeros(len(rows) * len(rows)).reshape(len(rows), len(rows))
 
     for row in rows:
-        sim = cosine_similarity(sparse_matrix.getrow(row), train_sparse_data).ravel()
+        sim = cosine_similarity(sparse_matrix.getrow(row), app.train_sparse_data).ravel()
         similar_indices = sim.argsort()
         similar = sim[similar_indices]
         similar_arr[row] = similar
@@ -114,10 +134,8 @@ def compute_user_similarity(sparse_matrix):
 
 # Calculates the similarity between tracks
 def compute_track_similarity(sparse_matrix, track_id):
-    global tracks
-
     similarity = cosine_similarity(sparse_matrix.T, dense_output=False)
-    similar_tracks = tracks[track_id], similarity[track_id]
+    similar_tracks = app.tracks[track_id], similarity[track_id]
     return similar_tracks
 
 # Calculates the similar features of top 10 user and tracks for initial dataset
@@ -215,7 +233,13 @@ def error_metrics(y_true, y_pred):
     return rmse
 
 def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMood):
-    global song_num, df_songs, trained_features, clf
+    song_num = app.song_num
+    df_songs = app.df_songs
+    trained_features = app.trained_features
+    clf = app.clf
+    mood_lrs = app.mood_lrs
+    pitch2int = app.pitch2int
+    data = app.data
 
     # Get input
     weight = newWeight
@@ -319,9 +343,7 @@ def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMo
     return rec_list
 
 def init_model():
-    global train_sparse_data, tracks, moods, mood_lrs, song_num, df_songs, trained_features, clf
-
-    users, tracks, items = load_data('./userData.csv')
+    users, app.tracks, items = load_data('./userData.csv')
     data = pd.DataFrame(items, columns=["user", "track", "rating"])
 
     reader = Reader(rating_scale=(0,1))
@@ -349,6 +371,8 @@ def init_model():
     train_new_similar_features = create_new_similar_features(train_sparse_data)
     test_new_similar_features = create_new_similar_features(test_sparse_data)
 
+    app.train_sparse_data = train_sparse_data
+
     x_train = train_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
     x_test = test_new_similar_features.drop(["user_id", "track_id", "rating"], axis = 1)
     y_train = train_new_similar_features["rating"]
@@ -359,44 +383,23 @@ def init_model():
     # XGB Model
     clf = xgb.XGBRegressor(n_estimators = 100, silent = False, n_jobs  = 21, random_state=15, objective='binary:logistic', learning_rate=0.05, num_round=200, max_depth=6)
     clf.fit(x_train, y_train, eval_metric = 'rmse')
+    app.clf = clf
 
     y_pred_test = clf.predict(x_test)
     rmse_test = error_metrics(y_test, y_pred_test)
     trained_sparse_matrix = get_user_item_sparse_matrix(data)
-    trained_features = create_new_similar_features(trained_sparse_matrix)
+    app.trained_features = create_new_similar_features(trained_sparse_matrix)
 
-    for mood in moods:
+    for mood in app.moods:
         pkl_filename = "LR_" + mood + ".pkl"
         with open(pkl_filename, 'rb') as file:
-            mood_lrs[mood] = pickle.load(file)
+            app.mood_lrs[mood] = pickle.load(file)
 
     df_songs = pd.read_csv('songListWithFeatures.csv',index_col=['num'])
-    song_num = len(df_songs)
+    app.song_num = len(df_songs)
+    app.df_songs = df_songs
 
-    print(song_num)
     print("Init Model Finished")
-
-class UserInfo(BaseModel):
-  prefWeight: Optional[float] = 0.5
-  moodWeight: Optional[float] = 0.5
-  pitchWeight: Optional[float] = 0.5
-  likeList: Optional[List[str]] = []
-  dislikeList: Optional[List[str]] = []
-  undefinedList: Optional[List[str]] = []
-  minPitch: Optional[str] = ''
-  maxPitch: Optional[str] = ''
-  moods: Optional[List[str]] = []
-
-app = FastAPI()
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.on_event("startup")
 async def startup():
