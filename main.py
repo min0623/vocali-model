@@ -399,7 +399,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup(background_tasks: BackgroundTasks):
-    background_tasks.add_task(init_model)
+    # background_tasks.add_task(init_model)
+    print("App Started")
 
 @app.post('/recommendations')                # Just in case if you want to handle a GET request
 def index(userInfo: UserInfo):
@@ -418,5 +419,6 @@ def index(userInfo: UserInfo):
     return result.to_dict('records')[:10]
 
 @app.get('/')
-def getInfo():
+def getInfo(background_tasks: BackgroundTasks):
+    background_tasks.add_task(init_model)
     return "Hello World"
