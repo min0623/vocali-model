@@ -240,6 +240,7 @@ def send_output(newWeight, liked, disliked, undefined, minPitch, maxPitch, newMo
     mood_lrs = app.mood_lrs
     pitch2int = app.pitch2int
     data = app.data
+    final_tracks_ids = app.final_tracks_ids
 
     # Get input
     weight = newWeight
